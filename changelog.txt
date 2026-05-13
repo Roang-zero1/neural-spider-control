@@ -2,7 +2,14 @@
 Version: 2.5.1
 Date: 2026-05-13
   Changes:
-    - Reconnect to last vehicle shortcut changed from ctrl + z to shift + Z
+    - Reconnect to last vehicle shortcut is now Shift+Z (was Ctrl+Z), so it stops fighting undo in chat and elsewhere.
+    - Hooks into Vehicle Control Center using its current remote name (vehicle-control-center) and the new context-button API instead of the old “centre” spelling and simple register-button flow.
+    - ceelos-vehicle-gui-util is no longer required: the left-toolbar and vehicle GUI actions (neural connect, orphaned engineer inventory, call spidertron, map at vehicle, open vehicle inventory) are registered and refreshed through Vehicle Control Center.
+    - Neural connect only shows when it makes sense: empty seat, or only a reusable dummy/orphan in the driver slot; hidden while the vehicle already has an active neural link or a real player in the seat.
+    - Works more cleanly when you’re on the spidertron remote: selection is resolved the same way Vehicle Control Center expects, with clearer feedback if nothing is selected.
+    - Dummy-engineer detection treats orphaned engineers the same as active ones where it matters, so inventories and UI logic stay in sync.
+    - Fallback vehicle GUI helpers were adjusted for the newer toolbar layout and icons, and opening the map prefers Vehicle Control Center’s follow-on-map when that mod offers it.
+    - Older neural/orphan button names from earlier layouts still route through the same actions, so you are less likely to end up with dead clicks after an upgrade.
 ---------------------------------------------------------------------------------------------------
 Version: 2.5.0
 Date: 2025-12-11

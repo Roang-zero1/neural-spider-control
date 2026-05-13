@@ -51,15 +51,9 @@ function spidertron_gui.add_orphaned_engineer_button(player, vehicle_type, orpha
             end
             
             -- Navigate to button_flow
-            local button_frame = toolbar["button_frame"]
-            if not button_frame or not button_frame.valid then
-                log_debug("Button frame not found in toolbar")
-                return nil
-            end
-            
-            local button_flow = button_frame["button_flow"]
+            local button_flow = toolbar["button_flow"]
             if not button_flow or not button_flow.valid then
-                log_debug("Button flow not found in button_frame")
+                log_debug("Button flow not found in toolbar")
                 return nil
             end
             
@@ -109,15 +103,9 @@ function spidertron_gui.add_orphaned_engineer_button(player, vehicle_type, orpha
             end
             
             -- Navigate to button_flow
-            local button_frame = toolbar["button_frame"]
-            if not button_frame or not button_frame.valid then
-                log_debug("Button frame not found in toolbar")
-                return nil
-            end
-            
-            local button_flow = button_frame["button_flow"]
+            local button_flow = toolbar["button_flow"]
             if not button_flow or not button_flow.valid then
-                log_debug("Button flow not found in button_frame")
+                log_debug("Button flow not found in toolbar")
                 return nil
             end
             
@@ -196,15 +184,9 @@ function spidertron_gui.add_neural_connect_button(player, vehicle_type, entity)
         end
         
         -- Navigate to button_flow
-        local button_frame = toolbar["button_frame"]
-        if not button_frame or not button_frame.valid then
-            log_debug("Button frame not found in toolbar")
-            return nil
-        end
-        
-        local button_flow = button_frame["button_flow"]
+        local button_flow = toolbar["button_flow"]
         if not button_flow or not button_flow.valid then
-            log_debug("Button flow not found in button_frame")
+            log_debug("Button flow not found in toolbar")
             return nil
         end
         
@@ -248,15 +230,9 @@ function spidertron_gui.add_neural_connect_button(player, vehicle_type, entity)
         end
         
         -- Navigate to button_flow
-        local button_frame = toolbar["button_frame"]
-        if not button_frame or not button_frame.valid then
-            log_debug("Button frame not found in toolbar")
-            return nil
-        end
-        
-        local button_flow = button_frame["button_flow"]
+        local button_flow = toolbar["button_flow"]
         if not button_flow or not button_flow.valid then
-            log_debug("Button flow not found in button_frame")
+            log_debug("Button flow not found in toolbar")
             return nil
         end
         
@@ -318,15 +294,9 @@ function spidertron_gui.add_vehicle_control_centre_buttons(player, vehicle_type,
     end
     
     -- Navigate to button_flow
-    local button_frame = toolbar["button_frame"]
-    if not button_frame or not button_frame.valid then
-        log_debug("Button frame not found in toolbar")
-        return
-    end
-    
-    local button_flow = button_frame["button_flow"]
+    local button_flow = toolbar["button_flow"]
     if not button_flow or not button_flow.valid then
-        log_debug("Button flow not found in button_frame")
+        log_debug("Button flow not found in toolbar")
         return
     end
     
@@ -336,9 +306,9 @@ function spidertron_gui.add_vehicle_control_centre_buttons(player, vehicle_type,
         local btn = button_flow.add{
                         type = "sprite-button",
                         name = call_spider_name,
-                        sprite = "utility/entity_info",
+                        sprite = "vcc-whistle",
                         tooltip = "Call Spider (Open Control Centre)",
-                        style = "slot_sized_button"
+                        style = "slot_sized_button" 
         }
 
         if not btn or not btn.valid then
@@ -354,7 +324,7 @@ function spidertron_gui.add_vehicle_control_centre_buttons(player, vehicle_type,
         local btn = button_flow.add{
                         type = "sprite-button",
                         name = open_map_name,
-                        sprite = "utility/open_map",
+                        sprite = "vcc-map",
                         tooltip = "Open Map at Vehicle Location",
                         style = "slot_sized_button"
         }
@@ -388,7 +358,7 @@ function spidertron_gui.add_vehicle_control_centre_buttons(player, vehicle_type,
         local btn = button_flow.add{
                         type = "sprite-button",
                         name = open_inventory_name,
-                        sprite = "utility/inventory",
+                        sprite = "entity/steel-chest",
                         tooltip = "Open Vehicle Inventory",
                         style = "slot_sized_button"
         }
@@ -551,8 +521,27 @@ function spidertron_gui.on_gui_click(event)
                 end
                 
                 if vehicle and vehicle.valid then
-                    -- Open map at vehicle position
-                    player.zoom_to_world(vehicle.position, 0.5)
+                    local follow_payload = {
+                        player_index = player.index,
+                        unit_number = tags.vehicle_unit_number,
+                        surface_index = tags.surface_index
+                    }
+                    local used_vcc = false
+                    if remote.interfaces["vehicle-control-center"] and remote.interfaces["vehicle-control-center"]["follow_vehicle_in_map"] then
+                        remote.call("vehicle-control-center", "follow_vehicle_in_map", follow_payload)
+                        used_vcc = true
+                    elseif remote.interfaces["vehicle-control-centre"] and remote.interfaces["vehicle-control-centre"]["follow_vehicle_in_map"] then
+                        remote.call("vehicle-control-centre", "follow_vehicle_in_map", follow_payload)
+                        used_vcc = true
+                    end
+                    if not used_vcc then
+                        if player.opened then
+                            player.opened = nil
+                        end
+                        pcall(function()
+                            player.centered_on = vehicle
+                        end)
+                    end
                     player.print("Map opened at vehicle location.")
                 else
                     player.print("Vehicle no longer exists.", {r=1, g=0.5, b=0})
