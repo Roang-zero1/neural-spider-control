@@ -15,6 +15,8 @@ Date: 2026-05-13
     - Added conditions for neural disconnect functionality, ensuring proper player-vehicle control checks.
     - Updated GUI integration to include a new "Neural Disconnect" button with appropriate context actions.
     - Enhanced refresh functionality for the Vehicle Control Center toolbar upon connection and disconnection events.
+  Bugfixes:
+    - On vehicle death, move dummy engineer inventory into the vehicle trunk (corpse) first, then spill overflow at the wreck — reverted after in-game test still lost dummy items.
 ---------------------------------------------------------------------------------------------------
 Version: 2.5.0
 Date: 2025-12-11
