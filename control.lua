@@ -619,6 +619,34 @@ remote.add_interface("neural-spider-control", {
         if not player or not player.valid then
             return false
         end
+        if not remote.interfaces["vehicle-control-center"] or
+           not remote.interfaces["vehicle-control-center"]["call_spidertron_to_location"] then
+            return false
+        end
+
+        local function call_spidertron(unit_number, surface_index)
+            remote.call("vehicle-control-center", "call_spidertron_to_location", {
+                player_index = player.index,
+                unit_number = unit_number,
+                surface_index = surface_index
+            })
+        end
+
+        if payload and payload.context == "player_left_toolbar" then
+            local selected = payload.selected_vehicles or {}
+            local called_any = false
+            for _, ref in ipairs(selected) do
+                if ref.unit_number and ref.surface_index then
+                    local vehicle = find_vehicle_by_unit_and_surface(ref.unit_number, ref.surface_index)
+                    if vehicle and vehicle.valid and vehicle.type == "spider-vehicle" then
+                        call_spidertron(ref.unit_number, ref.surface_index)
+                        called_any = true
+                    end
+                end
+            end
+            return called_any
+        end
+
         local tags = payload.button_tags or {}
         local unit_number = tags.vehicle_unit_number or tags.unit_number
         local surface_index = tags.surface_index
@@ -629,15 +657,8 @@ remote.add_interface("neural-spider-control", {
         if not vehicle or not vehicle.valid or vehicle.type ~= "spider-vehicle" then
             return false
         end
-        if remote.interfaces["vehicle-control-center"] and remote.interfaces["vehicle-control-center"]["call_spidertron_to_location"] then
-            remote.call("vehicle-control-center", "call_spidertron_to_location", {
-                player_index = player.index,
-                unit_number = unit_number,
-                surface_index = surface_index
-            })
-            return true
-        end
-        return false
+        call_spidertron(unit_number, surface_index)
+        return true
     end,
 
     vcc_click_open_map = function(payload)
