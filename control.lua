@@ -243,6 +243,67 @@ local function find_dummy_engineer_for_vehicle(vehicle)
     return nil
 end
 
+local function same_vehicle_entity(a, b)
+    if not a or not b or not a.valid or not b.valid then
+        return false
+    end
+    if a == b then
+        return true
+    end
+    return a.unit_number == b.unit_number and a.surface.index == b.surface.index
+end
+
+local function player_controls_vehicle(player_index, vehicle)
+    if not player_index or not vehicle or not vehicle.valid then
+        return false
+    end
+    if not storage.neural_spider_control then
+        return false
+    end
+
+    local connected = storage.neural_spider_control.connected_spidertrons and
+        storage.neural_spider_control.connected_spidertrons[player_index]
+    if same_vehicle_entity(connected, vehicle) then
+        return true
+    end
+
+    local connected_id = storage.neural_spider_control.connected_spidertron_ids and
+        storage.neural_spider_control.connected_spidertron_ids[player_index]
+    if connected_id and connected_id == vehicle.unit_number then
+        if connected and connected.valid then
+            return connected.surface.index == vehicle.surface.index
+        end
+        return true
+    end
+
+    return false
+end
+
+local function refresh_vcc_context_toolbar(player_index)
+    if remote.interfaces["vehicle-control-center"] and
+        remote.interfaces["vehicle-control-center"]["refresh_context_buttons"] then
+        pcall(remote.call, "vehicle-control-center", "refresh_context_buttons", player_index)
+    end
+end
+
+local function resolve_vehicle_from_payload(payload)
+    local remote_selected_spider = get_remote_selected_spider_vehicle(payload)
+    if payload and payload.context == "player_left_toolbar" then
+        return remote_selected_spider
+    end
+
+    local vehicle_ref = payload and payload.vehicle
+    local selected = payload and payload.selected_vehicles or {}
+    local vehicle = nil
+
+    if vehicle_ref then
+        vehicle = find_vehicle_by_unit_and_surface(vehicle_ref.unit_number, vehicle_ref.surface_index)
+    elseif selected and selected[1] then
+        vehicle = find_vehicle_by_unit_and_surface(selected[1].unit_number, selected[1].surface_index)
+    end
+    return vehicle
+end
+
 local function find_dummy_engineer_by_unit_number(engineer_unit_number)
     if not engineer_unit_number then
         return nil
@@ -460,28 +521,14 @@ remote.add_interface("neural-spider-control", {
     end,
 
     vcc_condition_neural_connect = function(payload)
-        local remote_selected_spider = get_remote_selected_spider_vehicle(payload)
-        if payload and payload.context == "player_left_toolbar" then
-            if not remote_selected_spider then
-                return false
-            end
-            if neural_disconnect and neural_disconnect.vehicle_has_active_connection then
-                return not neural_disconnect.vehicle_has_active_connection(remote_selected_spider)
-            end
-            return true
-        end
-
-        local vehicle_ref = payload and payload.vehicle
-        local selected = payload and payload.selected_vehicles or {}
-        local vehicle = nil
-
-        if vehicle_ref then
-            vehicle = find_vehicle_by_unit_and_surface(vehicle_ref.unit_number, vehicle_ref.surface_index)
-        elseif selected and selected[1] then
-            vehicle = find_vehicle_by_unit_and_surface(selected[1].unit_number, selected[1].surface_index)
-        end
+        local player_index = payload and payload.player_index
+        local vehicle = resolve_vehicle_from_payload(payload)
 
         if not vehicle or not vehicle.valid then
+            return false
+        end
+
+        if player_controls_vehicle(player_index, vehicle) then
             return false
         end
 
@@ -489,6 +536,17 @@ remote.add_interface("neural-spider-control", {
             return not neural_disconnect.vehicle_has_active_connection(vehicle)
         end
         return true
+    end,
+
+    vcc_condition_neural_disconnect = function(payload)
+        local player_index = payload and payload.player_index
+        local vehicle = resolve_vehicle_from_payload(payload)
+
+        if not vehicle or not vehicle.valid then
+            return false
+        end
+
+        return player_controls_vehicle(player_index, vehicle)
     end,
 
     vcc_tags_neural_connect = function(payload)
@@ -541,9 +599,53 @@ remote.add_interface("neural-spider-control", {
             return false
         end
 
+        local reopen_vehicle = player.opened and player.opened.valid and
+            player.opened.unit_number == vehicle.unit_number and
+            player.opened.surface.index == vehicle.surface.index
+
         player.opened = nil
         player.clear_cursor()
         neural_connect.connect_to_spidertron({player_index = player.index, spidertron = vehicle})
+        if reopen_vehicle and vehicle.valid then
+            player.opened = vehicle
+        end
+        refresh_vcc_context_toolbar(player.index)
+        return true
+    end,
+
+    vcc_click_neural_disconnect = function(payload)
+        local player = payload and game.get_player(payload.player_index)
+        if not player or not player.valid then
+            return false
+        end
+        local tags = payload.button_tags or {}
+        local vehicle = nil
+        if tags.unit_number and tags.surface_index then
+            vehicle = find_vehicle_by_unit_and_surface(tags.unit_number, tags.surface_index)
+        elseif payload.vehicle then
+            vehicle = find_vehicle_by_unit_and_surface(payload.vehicle.unit_number, payload.vehicle.surface_index)
+        elseif payload.selected_vehicles and payload.selected_vehicles[1] then
+            local selected = payload.selected_vehicles[1]
+            vehicle = find_vehicle_by_unit_and_surface(selected.unit_number, selected.surface_index)
+        end
+
+        if not vehicle or not vehicle.valid then
+            player.print("Unable to disconnect. Please select or open a valid vehicle.")
+            return false
+        end
+
+        if not player_controls_vehicle(player.index, vehicle) then
+            player.print("You are not remotely controlling this vehicle.")
+            return false
+        end
+
+        player.opened = nil
+        player.clear_cursor()
+        neural_disconnect.disconnect_from_spidertron({
+            player_index = player.index,
+            source_spidertron = vehicle
+        })
+        refresh_vcc_context_toolbar(player.index)
         return true
     end,
 
@@ -1238,6 +1340,19 @@ local function register_with_vehicle_control_centre()
             click_action = "vcc_click_neural_connect"
         },
         {
+            button_id = "neural_disconnect_vehicle",
+            context = "vehicle_relative",
+            vehicle_types = {"spider-vehicle", "car"},
+            priority = 5,
+            sprite = "neural-connection-sprite",
+            tooltip = "Neural Disconnect",
+            style = "nsc_neural_disconnect_button",
+            toggled = false,
+            condition_action = "vcc_condition_neural_disconnect",
+            tags_action = "vcc_tags_neural_connect",
+            click_action = "vcc_click_neural_disconnect"
+        },
+        {
             button_id = "orphaned_engineer_vehicle",
             context = "vehicle_relative",
             vehicle_types = {"spider-vehicle", "car"},
@@ -1289,6 +1404,19 @@ local function register_with_vehicle_control_centre()
             condition_action = "vcc_condition_neural_connect",
             tags_action = "vcc_tags_neural_connect",
             click_action = "vcc_click_neural_connect"
+        },
+        {
+            button_id = "neural_disconnect_player",
+            context = "player_left_toolbar",
+            vehicle_types = {"spider-vehicle"},
+            priority = 5,
+            sprite = "neural-connection-sprite",
+            tooltip = "Neural Disconnect",
+            style = "nsc_neural_disconnect_button",
+            toggled = false,
+            condition_action = "vcc_condition_neural_disconnect",
+            tags_action = "vcc_tags_neural_connect",
+            click_action = "vcc_click_neural_disconnect"
         },
         {
             button_id = "orphaned_engineer_player",
@@ -1394,6 +1522,13 @@ script.on_event(defines.events.on_tick, function(event)
         log_debug("First tick, storage exists: " .. tostring(storage ~= nil))
         restore_entity_references()
         validate_connections()
+        if remote.interfaces["vehicle-control-center"] then
+            use_control_centre = true
+            register_with_vehicle_control_centre()
+            if remote.interfaces["vehicle-control-center"]["refresh_context_buttons"] then
+                pcall(remote.call, "vehicle-control-center", "refresh_context_buttons")
+            end
+        end
         script.on_event(defines.events.on_tick, nil) -- Unregister this handler
     end
 end)

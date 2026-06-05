@@ -639,6 +639,11 @@ function neural_connect.connect_to_spidertron(command)
     -- Don't track connection here - it will be tracked on disconnect
     -- Update shortcut visibility (will be updated when we disconnect)
     neural_connect.update_shortcut_visibility(player)
+
+    if remote.interfaces["vehicle-control-center"] and
+        remote.interfaces["vehicle-control-center"]["refresh_context_buttons"] then
+        pcall(remote.call, "vehicle-control-center", "refresh_context_buttons", player.index)
+    end
 end
 
 -- Unified vehicle destruction handler

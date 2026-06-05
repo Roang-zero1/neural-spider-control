@@ -10,6 +10,11 @@ Date: 2026-05-13
     - Dummy-engineer detection treats orphaned engineers the same as active ones where it matters, so inventories and UI logic stay in sync.
     - Fallback vehicle GUI helpers were adjusted for the newer toolbar layout and icons, and opening the map prefers Vehicle Control Center’s follow-on-map when that mod offers it.
     - Older neural/orphan button names from earlier layouts still route through the same actions, so you are less likely to end up with dead clicks after an upgrade.
+    - Introduced new functions for vehicle entity comparison and player control validation.
+    - Refactored vehicle resolution logic to streamline vehicle retrieval from payloads.
+    - Added conditions for neural disconnect functionality, ensuring proper player-vehicle control checks.
+    - Updated GUI integration to include a new "Neural Disconnect" button with appropriate context actions.
+    - Enhanced refresh functionality for the Vehicle Control Center toolbar upon connection and disconnection events.
 ---------------------------------------------------------------------------------------------------
 Version: 2.5.0
 Date: 2025-12-11

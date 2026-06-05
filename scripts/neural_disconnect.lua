@@ -867,6 +867,11 @@ function neural_disconnect.return_to_engineer(player, vehicle_type, specific_veh
     -- Clean up data
     neural_disconnect.clean_up_connection_data(player.index)
 
+    if remote.interfaces["vehicle-control-center"] and
+        remote.interfaces["vehicle-control-center"]["refresh_context_buttons"] then
+        pcall(remote.call, "vehicle-control-center", "refresh_context_buttons", player.index)
+    end
+
     log_debug("Return to engineer completed for player " .. player.name)
 end
 
